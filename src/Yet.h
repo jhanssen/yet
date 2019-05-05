@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <stdlib.h>
 #include <functional>
 #include <vector>
@@ -39,6 +40,8 @@ public:
     void add(std::function<Result(TimerType)>&& cond, std::function<void(TimerType)>&& func);
 
     void step();
+
+    static void log(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 
 private:
     struct AnalogData
