@@ -76,17 +76,7 @@ void Yet::log(const char* fmt, ...)
                     Serial.write(buf);
                     break;
                 case 'f':
-                    switch (len) {
-                    case 1:
-                        Serial.print(va_arg(argv, float));
-                        break;
-                    case 2:
-                        Serial.print(va_arg(argv, double));
-                        break;
-                    default:
-                        Serial.print("too long float");
-                        abort();
-                    }
+                    Serial.print(va_arg(argv, double));
                     break;
                 case 'c':
                     Serial.print((char) va_arg(argv, int));
