@@ -26,7 +26,7 @@ public:
         Continue,
         Stop
     };
-    enum class Result {
+    enum class Custom {
         Run,
         DontRun,
         Stop
@@ -34,10 +34,10 @@ public:
 
     typedef unsigned long int TimerType;
 
-    void addAnalog(int pin, int threshold, Analog mode, std::function<Pin(TimerType, int, int)>&& func);
-    void addDigital(int pin, Digital mode, std::function<Pin(TimerType, int, Digital)>&& func);
-    void addTimer(TimerType when, std::function<Timer(TimerType)>&& func);
-    void add(std::function<Result(TimerType)>&& cond, std::function<void(TimerType)>&& func);
+    void analog(int pin, int threshold, Analog mode, std::function<Pin(TimerType, int, int)>&& func);
+    void digital(int pin, Digital mode, std::function<Pin(TimerType, int, Digital)>&& func);
+    void timer(TimerType when, std::function<Timer(TimerType)>&& func);
+    void custom(std::function<Custom(TimerType)>&& cond, std::function<void(TimerType)>&& func);
 
     void step();
 
@@ -73,7 +73,7 @@ private:
 
     struct CustomData
     {
-        std::function<Result(TimerType)> cond;
+        std::function<Custom(TimerType)> cond;
         std::function<void(TimerType)> func;
         bool stopped;
     };
@@ -83,22 +83,22 @@ private:
     enum { CleanupEvery = 1000 };
 };
 
-inline void Yet::addAnalog(int pin, int threshold, Analog mode, std::function<Pin(TimerType, int, int)>&& func)
+inline void Yet::analog(int pin, int threshold, Analog mode, std::function<Pin(TimerType, int, int)>&& func)
 {
     analogs.push_back({ pin, threshold, mode, std::move(func), false, false });
 }
 
-inline void Yet::addDigital(int pin, Digital mode, std::function<Pin(TimerType, int, Digital)>&& func)
+inline void Yet::digital(int pin, Digital mode, std::function<Pin(TimerType, int, Digital)>&& func)
 {
     digitals.push_back({ pin, mode, std::move(func), false, false });
 }
 
-inline void Yet::addTimer(TimerType when, std::function<Timer(TimerType)>&& func)
+inline void Yet::timer(TimerType when, std::function<Timer(TimerType)>&& func)
 {
     timers.push_back({ millis() + when, when, std::move(func), false });
 }
 
-inline void Yet::add(std::function<Result(TimerType)>&& cond, std::function<void(TimerType)>&& func)
+inline void Yet::custom(std::function<Custom(TimerType)>&& cond, std::function<void(TimerType)>&& func)
 {
     customs.push_back({ std::move(cond), std::move(func), false });
 }
@@ -173,10 +173,10 @@ inline void Yet::step()
             cleanups |= CleanupCustom;
             continue;
         }
-        const Result res = c.cond(ms);
-        if (res == Result::Stop)
+        const Custom res = c.cond(ms);
+        if (res == Custom::Stop)
             c.stopped = true;
-        else if (res == Result::Run)
+        else if (res == Custom::Run)
             c.func(ms);
     }
     for (auto& t : timers) {
