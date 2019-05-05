@@ -31,10 +31,12 @@ public:
         Stop
     };
 
-    void addAnalog(int pin, int threshold, Analog mode, std::function<Pin(unsigned long int, int, int)>&& func);
-    void addDigital(int pin, Digital mode, std::function<Pin(unsigned long int, int, Digital)>&& func);
-    void addTimer(unsigned long int when, std::function<Timer(unsigned long int)>&& func);
-    void add(std::function<Result(unsigned long int)>&& cond, std::function<void(unsigned long int)>&& func);
+    typedef unsigned long int TimerType;
+
+    void addAnalog(int pin, int threshold, Analog mode, std::function<Pin(TimerType, int, int)>&& func);
+    void addDigital(int pin, Digital mode, std::function<Pin(TimerType, int, Digital)>&& func);
+    void addTimer(TimerType when, std::function<Timer(TimerType)>&& func);
+    void add(std::function<Result(TimerType)>&& cond, std::function<void(TimerType)>&& func);
 
     void step();
 
@@ -44,7 +46,7 @@ private:
         int pin;
         int threshold;
         Analog mode;
-        std::function<Pin(unsigned long int, int, int)> func;
+        std::function<Pin(TimerType, int, int)> func;
         bool edge, stopped;
     };
     std::vector<AnalogData> analogs;
@@ -53,23 +55,23 @@ private:
     {
         int pin;
         Digital wanted;
-        std::function<Pin(unsigned long int, int, Digital)> func;
+        std::function<Pin(TimerType, int, Digital)> func;
         bool edge, stopped;
     };
     std::vector<DigitalData> digitals;
 
     struct TimerData
     {
-        unsigned long int when, interval;
-        std::function<Timer(unsigned long int)> func;
+        TimerType when, interval;
+        std::function<Timer(TimerType)> func;
         bool stopped;
     };
     std::vector<TimerData> timers;
 
     struct CustomData
     {
-        std::function<Result(unsigned long int)> cond;
-        std::function<void(unsigned long int)> func;
+        std::function<Result(TimerType)> cond;
+        std::function<void(TimerType)> func;
         bool stopped;
     };
     std::vector<CustomData> customs;
@@ -78,22 +80,22 @@ private:
     enum { CleanupEvery = 1000 };
 };
 
-inline void Yet::addAnalog(int pin, int threshold, Analog mode, std::function<Pin(unsigned long int, int, int)>&& func)
+inline void Yet::addAnalog(int pin, int threshold, Analog mode, std::function<Pin(TimerType, int, int)>&& func)
 {
     analogs.push_back({ pin, threshold, mode, std::move(func), false, false });
 }
 
-inline void Yet::addDigital(int pin, Digital mode, std::function<Pin(unsigned long int, int, Digital)>&& func)
+inline void Yet::addDigital(int pin, Digital mode, std::function<Pin(TimerType, int, Digital)>&& func)
 {
     digitals.push_back({ pin, mode, std::move(func), false, false });
 }
 
-inline void Yet::addTimer(unsigned long int when, std::function<Timer(unsigned long int)>&& func)
+inline void Yet::addTimer(TimerType when, std::function<Timer(TimerType)>&& func)
 {
     timers.push_back({ millis() + when, when, std::move(func), false });
 }
 
-inline void Yet::add(std::function<Result(unsigned long int)>&& cond, std::function<void(unsigned long int)>&& func)
+inline void Yet::add(std::function<Result(TimerType)>&& cond, std::function<void(TimerType)>&& func)
 {
     customs.push_back({ std::move(cond), std::move(func), false });
 }
