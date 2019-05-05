@@ -13,7 +13,8 @@ void Yet::log(const char* fmt, ...)
     len = 1;
     for(i = 0, j = 0; fmt[i] != '\0'; ++i, len = 1) {
         if (fmt[i] == '%') {
-            Serial.write(reinterpret_cast<const uint8_t*>(fmt+j), i-j);
+            if(i > j)
+                Serial.write(reinterpret_cast<const uint8_t*>(fmt+j), i-j);
 
             do {
                 cont = false;
@@ -104,15 +105,16 @@ void Yet::log(const char* fmt, ...)
                 }
             } while (cont);
 
-            j = i+len;
+            j = i+1;
         } else if (fmt[i] == '\n') {
+            if(i > j)
+                Serial.write(reinterpret_cast<const uint8_t*>(fmt+j), i-j);
             Serial.println("");
             j = i+1;
         }
     }
     va_end(argv);
 
-    if(i > j) {
+    if(i > j)
         Serial.write(reinterpret_cast<const uint8_t*>(fmt+j), i-j);
-    }
 }
