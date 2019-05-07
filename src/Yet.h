@@ -93,7 +93,10 @@ inline void Yet::analog(int pin, int threshold, Analog mode, std::function<Pin(T
 
 inline void Yet::analog(int pin, int low, int high, std::function<Pin(TimerType, int, int)>&& func)
 {
-    analogs.push_back({ pin, low, high, Analog::LowHigh, std::move(func), false, false });
+    if (high > low)
+        analogs.push_back({ pin, low, high, Analog::LowHigh, std::move(func), false, false });
+    else
+        analogs.push_back({ pin, high, low, Analog::LowHigh, std::move(func), true, false });
 }
 
 inline void Yet::digital(int pin, Digital mode, std::function<Pin(TimerType, int, Digital)>&& func)
