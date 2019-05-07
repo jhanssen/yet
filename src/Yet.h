@@ -12,6 +12,7 @@ public:
         Less,
         LessEquals,
         Equals,
+        LowHigh,
     };
     enum class Digital {
         Off,
@@ -34,7 +35,9 @@ public:
 
     typedef unsigned long int TimerType;
 
+    void analog(int pin, int low, int high, std::function<Pin(TimerType, int, int)>&& func);
     void analog(int pin, int threshold, Analog mode, std::function<Pin(TimerType, int, int)>&& func);
+    void digital(int pin, std::function<Pin(TimerType, int, Digital)>&& func);
     void digital(int pin, Digital mode, std::function<Pin(TimerType, int, Digital)>&& func);
     void timer(TimerType when, std::function<Timer(TimerType)>&& func);
     void custom(std::function<Custom(TimerType)>&& cond, std::function<void(TimerType)>&& func);
@@ -47,7 +50,7 @@ private:
     struct AnalogData
     {
         int pin;
-        int threshold;
+        int low, high;
         Analog mode;
         std::function<Pin(TimerType, int, int)> func;
         bool edge, stopped;
@@ -59,7 +62,7 @@ private:
         int pin;
         Digital wanted;
         std::function<Pin(TimerType, int, Digital)> func;
-        bool edge, stopped;
+        bool edge, stopped, wantsWanted;
     };
     std::vector<DigitalData> digitals;
 
@@ -85,12 +88,22 @@ private:
 
 inline void Yet::analog(int pin, int threshold, Analog mode, std::function<Pin(TimerType, int, int)>&& func)
 {
-    analogs.push_back({ pin, threshold, mode, std::move(func), false, false });
+    analogs.push_back({ pin, threshold, threshold, mode, std::move(func), false, false });
+}
+
+inline void Yet::analog(int pin, int low, int high, std::function<Pin(TimerType, int, int)>&& func)
+{
+    analogs.push_back({ pin, low, high, Analog::LowHigh, std::move(func), false, false });
 }
 
 inline void Yet::digital(int pin, Digital mode, std::function<Pin(TimerType, int, Digital)>&& func)
 {
-    digitals.push_back({ pin, mode, std::move(func), false, false });
+    digitals.push_back({ pin, mode, std::move(func), false, false, true });
+}
+
+inline void Yet::digital(int pin, std::function<Pin(TimerType, int, Digital)>&& func)
+{
+    digitals.push_back({ pin, Digital::On, std::move(func), false, false, false });
 }
 
 inline void Yet::timer(TimerType when, std::function<Timer(TimerType)>&& func)
@@ -121,31 +134,39 @@ inline void Yet::step()
         const int r = analogRead(a.pin);
         bool run = false;
         if (a.edge) {
-            if ((a.mode == Analog::Greater) && r <= a.threshold)
+            if (a.mode == Analog::Greater && r <= a.low)
                 a.edge = false;
-            else if ((a.mode == Analog::GreaterEquals) && r < a.threshold)
+            else if (a.mode == Analog::GreaterEquals && r < a.low)
                 a.edge = false;
-            else if ((a.mode == Analog::Less) && r >= a.threshold)
+            else if (a.mode == Analog::Less && r >= a.high)
                 a.edge = false;
-            else if ((a.mode == Analog::LessEquals) && r > a.threshold)
+            else if (a.mode == Analog::LessEquals && r > a.high)
                 a.edge = false;
-            else if ((a.mode == Analog::Equals) && r != a.threshold)
+            else if (a.mode == Analog::Equals && r != a.high)
                 a.edge = false;
+            else if (a.mode == Analog::LowHigh && r <= a.low) {
+                run = true;
+                a.edge = false;
+            }
         } else {
-            if ((a.mode == Analog::Greater) && r > a.threshold)
+            if (a.mode == Analog::Greater && r > a.high)
                 run = true;
-            else if ((a.mode == Analog::GreaterEquals) && r >= a.threshold)
+            else if (a.mode == Analog::GreaterEquals && r >= a.high)
                 run = true;
-            else if ((a.mode == Analog::Less) && r < a.threshold)
+            else if (a.mode == Analog::Less && r < a.low)
                 run = true;
-            else if ((a.mode == Analog::LessEquals) && r <= a.threshold)
+            else if (a.mode == Analog::LessEquals && r <= a.low)
                 run = true;
-            else if ((a.mode == Analog::Equals) && r == a.threshold)
+            else if (a.mode == Analog::Equals && r == a.high)
                 run = true;
+            else if (a.mode == Analog::LowHigh && r >= a.high) {
+                run = true;
+                a.edge = true;
+            }
         }
         if (run) {
             const Pin res = a.func(ms, a.pin, r);
-            if (res == Pin::Edge)
+            if (res == Pin::Edge && a.mode != Analog::LowHigh)
                 a.edge = true;
             else if (res == Pin::Stop)
                 a.stopped = true;
@@ -158,14 +179,19 @@ inline void Yet::step()
         }
         const Digital r = (digitalRead(d.pin) == HIGH) ? Digital::On : Digital::Off;
         if (d.edge) {
-            if (r != d.wanted)
+            if (r != d.wanted) {
                 d.edge = false;
+                if (!d.wantsWanted) {
+                    if (d.func(ms, d.pin, r) == Pin::Stop)
+                        d.stopped = true;
+                }
+            }
         } else if (r == d.wanted) {
             const Pin res = d.func(ms, d.pin, d.wanted);
-            if (res == Pin::Edge)
-                d.edge = true;
-            else if (res == Pin::Stop)
+            if (res == Pin::Stop)
                 d.stopped = true;
+            else if (res == Pin::Edge || !d.wantsWanted)
+                d.edge = true;
         }
     }
     for (auto& c : customs) {
